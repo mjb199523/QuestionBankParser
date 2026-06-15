@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Question Paper Parser</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div>
+      <p class="eyebrow">DOCX TO QUESTION BANK</p>
+      <h1>Question Paper Parser</h1>
+      <p class="subtitle">Upload a Word question paper, review its questions and options, and export Excel.</p>
+    </div>
+  </header>
+
+  <main>
+    <section id="uploadPanel" class="upload-panel">
+      <input id="fileInput" type="file" accept=".docx" hidden>
+      <div class="upload-icon">DOCX</div>
+      <h2>Drop your question paper here</h2>
+      <p>Extracts only question and option text. Passages and images are ignored.</p>
+      <button id="chooseButton" class="primary">Choose Word document</button>
+      <p id="status" class="status"></p>
+    </section>
+
+    <section id="workspace" class="workspace hidden">
+      <aside>
+        <div class="aside-heading">
+          <div>
+            <p class="eyebrow">PAPER</p>
+            <h2 id="paperName"></h2>
+          </div>
+          <button id="newButton" class="ghost">New upload</button>
+        </div>
+        <div id="stats" class="stats"></div>
+        <label class="search">
+          <span>Search</span>
+          <input id="searchInput" placeholder="Question text or number">
+        </label>
+        <label>
+          <span>Subject</span>
+          <select id="subjectFilter"><option value="">All subjects</option></select>
+        </label>
+        <button id="exportButton" class="primary export">Export Excel</button>
+      </aside>
+      <section class="review">
+        <div class="review-heading">
+          <div>
+            <p class="eyebrow">REVIEW</p>
+            <h2>Extracted questions</h2>
+          </div>
+          <p id="visibleCount"></p>
+        </div>
+        <div id="questions"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
