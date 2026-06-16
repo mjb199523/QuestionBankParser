@@ -98,14 +98,41 @@ def _direct_paragraphs_and_nested_images(
                     Paragraph(_text(child), num_pr is not None, _collect_images(child))
                 )
             elif child.tag == W_TBL:
-                # Skip text but gather images from the nested table
-                nested_imgs: list[dict] = []
-                for blip in child.findall(".//a:blip", NS):
-                    rid = blip.get(R_EMBED)
-                    if rid in images:
-                        nested_imgs.append(images[rid])
-                if nested_imgs:
-                    result.append(Paragraph("", False, nested_imgs))
+                # Check if images are in separate cells (option-like layout).
+                # If each image-bearing cell has exactly one image and no text,
+                # treat each as a separate paragraph so _option_tail can detect
+                # individual options.
+                per_cell_imgs: list[list[dict]] = []
+                mixed = False
+                for cell in child.findall(".//w:tc", NS):
+                    cell_imgs: list[dict] = []
+                    for blip in cell.findall(".//a:blip", NS):
+                        rid = blip.get(R_EMBED)
+                        if rid in images:
+                            cell_imgs.append(images[rid])
+                    if not cell_imgs:
+                        continue
+                    cell_text = "".join(
+                        _text(p) for p in cell.findall(".//w:p", NS)
+                    ).strip()
+                    if cell_text or len(cell_imgs) > 1:
+                        mixed = True
+                        break
+                    per_cell_imgs.append(cell_imgs)
+
+                if not mixed and len(per_cell_imgs) > 1:
+                    # Each cell has a single image — emit separate paragraphs
+                    for imgs in per_cell_imgs:
+                        result.append(Paragraph("", False, imgs))
+                else:
+                    # Fall back: lump all images into one paragraph
+                    nested_imgs: list[dict] = []
+                    for blip in child.findall(".//a:blip", NS):
+                        rid = blip.get(R_EMBED)
+                        if rid in images:
+                            nested_imgs.append(images[rid])
+                    if nested_imgs:
+                        result.append(Paragraph("", False, nested_imgs))
             else:
                 _walk(child)
 
@@ -196,6 +223,11 @@ def _manual_option(paragraph: Paragraph) -> tuple[str, str] | None:
     return match.group(1).upper(), match.group(2).strip()
 
 
+def _is_image_only(paragraph: Paragraph) -> bool:
+    """True when the paragraph has images but no text and no numbering."""
+    return not paragraph.text and bool(paragraph.images) and not paragraph.numbered
+
+
 def _is_option(paragraph: Paragraph) -> bool:
     return bool(
         (paragraph.numbered and (paragraph.text or paragraph.images))
@@ -206,7 +238,8 @@ def _is_option(paragraph: Paragraph) -> bool:
 def _extract_options(paragraphs: list[Paragraph]) -> list[dict]:
     options = []
     for paragraph in paragraphs:
-        if not _is_option(paragraph):
+        # Accept both standard options and image-only paragraphs
+        if not _is_option(paragraph) and not _is_image_only(paragraph):
             continue
         manual = _manual_option(paragraph)
         label = manual[0] if manual else chr(65 + len(options))
@@ -232,14 +265,34 @@ def _option_tail(paragraphs: list[Paragraph]) -> tuple[int, list[dict]]:
     
     Since `_strip_translation` removes any trailing English translation,
     the actual options are always at the end of the remaining paragraphs.
+
+    Two detection strategies:
+    1. Standard: walk backward for numbered/labeled options (text or image).
+    2. Image-only fallback: if no standard options found, walk backward
+       for un-numbered image-only paragraphs (requires ≥2 to avoid
+       misclassifying a single prompt image).
     """
     end = len(paragraphs)
     while end and not paragraphs[end - 1].text and not paragraphs[end - 1].images:
         end -= 1
+
+    # Strategy 1: standard options (numbered lists or A/B/C/D labels)
     start = end
     while start and _is_option(paragraphs[start - 1]):
         start -= 1
-    return start, _extract_options(paragraphs[start:end])
+
+    if start < end:
+        return start, _extract_options(paragraphs[start:end])
+
+    # Strategy 2: image-only paragraphs (no numbering, no text)
+    start = end
+    while start and _is_image_only(paragraphs[start - 1]):
+        start -= 1
+
+    if end - start >= 2:
+        return start, _extract_options(paragraphs[start:end])
+
+    return end, []
 
 
 def _plain_text(paragraphs: Iterable[Paragraph]) -> list[str]:
