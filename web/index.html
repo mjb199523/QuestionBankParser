@@ -3,61 +3,317 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Question Paper Parser</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Question Bank Parser Tool</title>
+  <link rel="stylesheet" href="styles.css?v=7">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
 </head>
 <body>
-  <header>
-    <div>
-      <p class="eyebrow">DOCX TO QUESTION BANK</p>
-      <h1>Question Paper Parser</h1>
-      <p class="subtitle">Upload a Word question paper, review its questions and options, and export Excel.</p>
-    </div>
-  </header>
 
-  <main>
-    <section id="uploadPanel" class="upload-panel">
-      <input id="fileInput" type="file" accept=".docx" hidden>
-      <div class="upload-icon">DOCX</div>
-      <h2>Drop your question paper here</h2>
-      <p>Extracts only question and option text. Passages and images are ignored.</p>
-      <button id="chooseButton" class="primary">Choose Word document</button>
-      <p id="status" class="status"></p>
+  <!-- ===================== LOGIN SCREEN ===================== -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-backdrop"></div>
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            <line x1="9" y1="7" x2="15" y2="7"/>
+            <line x1="9" y1="11" x2="15" y2="11"/>
+          </svg>
+        </div>
+      </div>
+      <h2 class="login-title">Question Bank Parser Tool</h2>
+      <p class="login-subtitle">Sign in to access the dashboard</p>
+      <form id="loginForm" autocomplete="off">
+        <div class="login-field">
+          <label for="loginEmail">Email Address</label>
+          <input type="email" id="loginEmail" placeholder="Enter your email" required autocomplete="username">
+        </div>
+        <div class="login-field">
+          <label for="loginPassword">Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" placeholder="Enter your password" required autocomplete="current-password">
+            <button type="button" id="togglePassword" class="toggle-pw" tabindex="-1" aria-label="Show password">
+              <svg id="eyeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <p id="loginError" class="login-error hidden"></p>
+        <button type="submit" class="login-btn">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== APP (Hidden until login) ===================== -->
+  <div id="appShell" class="hidden">
+    <header>
+      <div class="header-content">
+        <div>
+          <p class="eyebrow">DOCX TO QUESTION BANK</p>
+          <h1>Question Paper Parser</h1>
+          <p class="subtitle">Upload a Word question paper, review its questions and options, and export Excel.</p>
+        </div>
+        <div class="header-right">
+          <nav class="app-nav">
+            <button id="navMyFiles" class="ghost active">My Files</button>
+            <button id="navWorkspace" class="ghost">Workspace</button>
+          </nav>
+          <div class="user-menu">
+            <span id="userGreeting" class="user-greeting"></span>
+            <button id="logoutBtn" class="logout-btn">Logout</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- DASHBOARD STATS -->
+      <section id="dashboardStats" class="dashboard-stats">
+        <h2 class="dashboard-welcome" id="dashboardWelcome">Welcome</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background: #eaf5ef; color: #086c56;">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            </div>
+            <div class="stat-card-value" id="statSubjects">0</div>
+            <div class="stat-card-label">Total Subjects</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background: #e6f7ff; color: #0050b3;">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <div class="stat-card-value" id="statAssessments">0</div>
+            <div class="stat-card-label">Total Assessments</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background: #fff7e6; color: #ad6800;">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div class="stat-card-value" id="statFiles">0</div>
+            <div class="stat-card-label">Total Files</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background: #fffbe6; color: #874d00;">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </div>
+            <div class="stat-card-value" id="statDrafts">0</div>
+            <div class="stat-card-label">Draft Files</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-icon" style="background: #f6ffed; color: #389e0d;">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="stat-card-value" id="statDownloaded">0</div>
+            <div class="stat-card-label">Downloaded Files</div>
+          </div>
+        </div>
+      </section>
+
+    <!-- MY FILES VIEW -->
+    <section id="myFilesView" class="my-files-view">
+      <div class="review-heading">
+        <div>
+          <p class="eyebrow">DASHBOARD</p>
+          <h2>My Files</h2>
+        </div>
+        <button id="createNewBankBtn" class="primary">Create New Question Bank</button>
+      </div>
+      <div class="table-container">
+        <table id="myFilesTable">
+          <thead>
+            <tr>
+              <th>Document Name</th>
+              <th>Created On</th>
+              <th>Last Modified</th>
+              <th>Total Questions</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </section>
 
-    <section id="workspace" class="workspace hidden">
-      <aside>
-        <div class="aside-heading">
-          <div>
-            <p class="eyebrow">PAPER</p>
-            <h2 id="paperName"></h2>
-          </div>
-          <button id="newButton" class="ghost">New upload</button>
+    <!-- WORKSPACE VIEW -->
+    <div id="workspaceView" class="hidden">
+      <div id="editorHeader" class="editor-header">
+        <div class="doc-title-group">
+          <input type="text" id="docNameInput" placeholder="Document Name">
+          <span id="autoSaveStatus" class="save-status">Last Saved: Never</span>
         </div>
-        <div id="stats" class="stats"></div>
-        <label class="search">
-          <span>Search</span>
-          <input id="searchInput" placeholder="Question text or number">
-        </label>
-        <label>
-          <span>Subject</span>
-          <select id="subjectFilter"><option value="">All subjects</option></select>
-        </label>
-        <button id="exportButton" class="primary export">Export Excel</button>
-      </aside>
-      <section class="review">
-        <div class="review-heading">
-          <div>
+        <div class="doc-actions">
+          <button id="saveDraftBtn" class="secondary">Save Draft</button>
+        </div>
+      </div>
+
+      <section id="configPanel" class="config-panel">
+        <div class="config-section" style="grid-column: span 2;">
+          <h3>Manage Subjects & Grades</h3>
+          <div class="config-input-group">
+            <input type="text" id="subjectInput" placeholder="Subject (e.g. Assamese)">
+            <input type="text" id="gradeInput" placeholder="Grade (e.g. Grade 3)">
+            <button id="addAssessmentBtn" class="secondary">+ Add</button>
+          </div>
+          <div class="table-container" style="margin-top: 16px; max-height: 200px; overflow-y: auto;">
+            <table id="assessmentConfigTable">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Grade</th>
+                  <th>Assessment ID</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>Mediums</h3>
+          <div class="config-input-group">
+            <input type="text" id="mediumInput" placeholder="e.g. English">
+            <button id="addMediumBtn" class="secondary">+ Add Medium</button>
+          </div>
+          <div id="mediumList" class="tag-list"></div>
+        </div>
+      </section>
+
+      <section id="masterUploadPanel" class="upload-panel master-upload">
+        <input id="masterFileInput" type="file" accept=".xlsx,.xls" hidden>
+        <div class="upload-icon">XLSX</div>
+        <h2>Upload Master Excel</h2>
+        <p>Accepted formats: .xlsx, .xls. Upload only once to append mappings.</p>
+        <button id="chooseMasterButton" class="primary">Choose Master Excel</button>
+        <p id="masterStatus" class="status"></p>
+      </section>
+
+      <section id="uploadPanel" class="upload-panel">
+        <input id="fileInput" type="file" accept=".docx" hidden>
+        <div class="upload-icon">DOCX</div>
+        <h2>Drop your question paper here</h2>
+        <p>Extracts only question and option text. Passages and images are ignored.</p>
+        <button id="chooseButton" class="primary">Choose Word document</button>
+        <p id="status" class="status"></p>
+      </section>
+
+      <section id="workspace" class="workspace hidden">
+        <aside>
+          <div class="aside-heading">
+            <div>
+              <p class="eyebrow">PAPER</p>
+              <h2 id="paperName"></h2>
+            </div>
+            <button id="newButton" class="ghost">New upload</button>
+          </div>
+          <div id="stats" class="stats"></div>
+          <label class="search">
+            <span>Search</span>
+            <input id="searchInput" placeholder="Question text or number">
+          </label>
+          <label>
+            <span>Subject</span>
+            <select id="subjectFilter"><option value="">All subjects</option></select>
+          </label>
+          <button id="exportButton" class="primary export">Export Single Paper Excel</button>
+
+          <div class="mapping-panel">
+            <h3>Question Mapping</h3>
+            <label>
+              <span>Subject</span>
+              <select id="mapSubject"><option value="">Select Subject</option></select>
+            </label>
+            <label>
+              <span>Grade</span>
+              <select id="mapGrade"><option value="">Select Grade</option></select>
+            </label>
+            <label>
+              <span>Medium</span>
+              <select id="mapMedium"><option value="">Select Medium</option></select>
+            </label>
+            <label>
+              <span>Assessment ID</span>
+              <select id="mapAssessmentId"><option value="">Select Assessment ID</option></select>
+            </label>
+            <label class="search">
+              <span>Question Range</span>
+              <input id="mapRange" placeholder="e.g. 1-10">
+            </label>
+            <button id="previewMapButton" class="secondary">Preview Selection</button>
+            <button id="addToMasterButton" class="primary map-btn">Add To Master Excel</button>
+          </div>
+        </aside>
+        <section class="review">
+          <div class="review-heading">
+            <div>
             <p class="eyebrow">REVIEW</p>
             <h2>Extracted questions</h2>
+            <button id="toggleExpandBtn" class="secondary" style="margin-top: 8px; padding: 6px 12px; font-size: 13px;">Collapse All</button>
           </div>
-          <p id="visibleCount"></p>
-        </div>
-        <div id="questions"></div>
+            <p id="visibleCount"></p>
+          </div>
+          <div id="questions"></div>
+        </section>
       </section>
-    </section>
-  </main>
 
-  <script src="app.js?v=2"></script>
+      <section id="masterPreviewSection" class="workspace hidden">
+        <div class="master-preview-container">
+          <div class="review-heading">
+            <div>
+              <p class="eyebrow">MASTER DATA</p>
+              <h2>Master Excel Preview</h2>
+            </div>
+            <button id="downloadMasterBtn" class="primary">Download Master Excel</button>
+          </div>
+          <div class="master-filters">
+             <select id="filterMasterSubject"><option value="">All Subjects</option></select>
+             <select id="filterMasterGrade"><option value="">All Grades</option></select>
+             <select id="filterMasterMedium"><option value="">All Mediums</option></select>
+          </div>
+          <div class="table-container">
+            <table id="masterTable">
+              <thead>
+                <tr>
+                  <th>Assessment ID</th><th>Subject</th><th>Grade</th><th>Medium</th><th>No.</th><th>Question Text</th>
+                  <th>Opt A</th><th>Opt B</th><th>Opt C</th><th>Opt D</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="mapping-history-container">
+          <div class="review-heading">
+            <h2>Mapping History</h2>
+          </div>
+          <div class="table-container">
+            <table id="historyTable">
+              <thead>
+                <tr>
+                  <th>Assessment ID</th><th>Subject</th><th>Grade</th><th>Medium</th><th>Range</th><th>Added</th><th>Timestamp</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  </div><!-- end #appShell -->
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    var s = document.createElement('script');
+    s.src = 'app.js?t=' + Date.now();
+    document.body.appendChild(s);
+  </script>
 </body>
 </html>
