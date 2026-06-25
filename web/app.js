@@ -144,6 +144,9 @@ logoutBtn.addEventListener("click", () => {
   showToast("You have been logged out successfully.");
 });
 
+// ===================== MAIN APPLICATION =====================
+let appInitialized = false;
+
 // --- Check session on page load ---
 const existingSession = getSession();
 if (existingSession) {
@@ -152,13 +155,10 @@ if (existingSession) {
   showLogin();
 }
 
-// ===================== MAIN APPLICATION =====================
-let appInitialized = false;
-
 function initializeApp() {
   if (appInitialized) {
     // If already initialized, just refresh dashboard stats
-    updateDashboardStats();
+    if (window.updateDashboardStats) window.updateDashboardStats();
     return;
   }
   appInitialized = true;
@@ -304,7 +304,7 @@ async function initMyFiles() {
       </td>
     </tr>
   `).join("");
-  updateDashboardStats();
+  if (window.updateDashboardStats) window.updateDashboardStats();
 }
 
 window.openProject = async function(id) {
@@ -413,10 +413,6 @@ function loadProjectState(p) {
   
   autoSaveStatus.textContent = "Last Saved: " + formatSavedTime(p.modifiedDate);
   isDirty = false;
-  
-  const isLocked = p.status === 'Downloaded';
-  docNameInput.disabled = isLocked;
-  addToMasterButton.disabled = isLocked;
 }
 
 function updateCurrentProjectObject() {
@@ -449,6 +445,9 @@ function startAutoSave() {
 
 function setDirty() {
   isDirty = true;
+  if (currentProject && currentProject.status === 'Downloaded') {
+    currentProject.status = 'Draft';
+  }
 }
 
 
@@ -471,7 +470,6 @@ function formatSavedTime(isoString) {
 
 // --- Config Handling ---
 function addConfig(inputId, listId, array, renderSelectIds) {
-  if (currentProject?.status === 'Downloaded') return;
   const input = document.querySelector(inputId);
   const val = input.value.trim();
   if (val && !array.includes(val)) {
@@ -485,7 +483,6 @@ function addConfig(inputId, listId, array, renderSelectIds) {
 }
 
 function removeConfig(item, array, listId, renderSelectIds) {
-  if (currentProject?.status === 'Downloaded') return;
   const index = array.indexOf(item);
   if (index > -1) array.splice(index, 1);
   renderConfigList(listId, array, (val) => removeConfig(val, array, listId, renderSelectIds));
@@ -529,7 +526,6 @@ function generateAssessmentId(subject, grade) {
 }
 
 document.querySelector("#addAssessmentBtn").addEventListener("click", () => {
-  if (currentProject?.status === 'Downloaded') return;
   const subInput = document.querySelector("#subjectInput");
   const graInput = document.querySelector("#gradeInput");
   const subject = subInput.value.trim();
@@ -557,7 +553,6 @@ document.querySelector("#addAssessmentBtn").addEventListener("click", () => {
 });
 
 window.removeAssessment = function(id) {
-  if (currentProject?.status === 'Downloaded') return;
   configuredAssessments = configuredAssessments.filter(a => a.assessmentId !== id);
   renderAssessments();
   setDirty();
@@ -626,7 +621,6 @@ document.querySelector("#addMediumBtn").addEventListener("click", () => addConfi
 
 // --- Master Excel Upload ---
 chooseMasterButton.addEventListener("click", () => {
-  if (currentProject?.status === 'Downloaded') return;
   masterFileInput.click();
 });
 masterFileInput.addEventListener("change", (e) => {
@@ -640,7 +634,6 @@ masterFileInput.addEventListener("change", (e) => {
   event.preventDefault(); masterUploadPanel.classList.remove("drag");
 }));
 masterUploadPanel.addEventListener("drop", event => {
-  if (currentProject?.status === 'Downloaded') return;
   const file = event.dataTransfer.files[0];
   if (file) handleMasterFile(file);
 });
@@ -672,12 +665,10 @@ function handleMasterFile(file) {
 
 // --- Parsing Word Doc ---
 chooseButton.addEventListener("click", () => {
-  if (currentProject?.status === 'Downloaded') return;
   fileInput.click();
 });
 fileInput.addEventListener("change", () => fileInput.files[0] && upload(fileInput.files[0]));
 document.querySelector("#newButton").addEventListener("click", () => {
-  if (currentProject?.status === 'Downloaded') return;
   resetPaperState();
 });
 document.querySelector("#exportButton").addEventListener("click", exportExcel);
@@ -697,7 +688,6 @@ toggleExpandBtn.addEventListener("click", () => {
   event.preventDefault(); uploadPanel.classList.remove("drag");
 }));
 uploadPanel.addEventListener("drop", event => {
-  if (currentProject?.status === 'Downloaded') return;
   const file = event.dataTransfer.files[0];
   if (file) upload(file);
 });
@@ -781,18 +771,17 @@ function questionCard(q) {
     <div class="option">
       <span class="option-label">${option.label}</span>
       <div>
-        <input data-question="${q.number}" data-option="${index}" value="${escapeAttr(option.text)}" ${currentProject?.status === 'Downloaded' ? 'disabled' : ''}>
+        <input data-question="${q.number}" data-option="${index}" value="${escapeAttr(option.text)}">
       </div>
     </div>`).join("");
   return `<article class="question-card">
     <div class="question-top"><span class="number">Question ${q.number}</span><span class="badge">${escapeHtml(q.subject || q.type)}</span></div>
-    <textarea class="question-text" data-question="${q.number}" data-field="question" ${currentProject?.status === 'Downloaded' ? 'disabled' : ''}>${escapeHtml(q.question)}</textarea>
+    <textarea class="question-text" data-question="${q.number}" data-field="question">${escapeHtml(q.question)}</textarea>
     <div class="options">${options}</div>
   </article>`;
 }
 
 function updateQuestion(event) {
-  if (currentProject?.status === 'Downloaded') return;
   const q = paper.questions.find(item => item.number === Number(event.target.dataset.question));
   if (event.target.dataset.option !== undefined) q.options[Number(event.target.dataset.option)].text = event.target.value;
   else q[event.target.dataset.field] = event.target.value;
@@ -815,7 +804,6 @@ previewMapButton.addEventListener("click", () => {
 });
 
 addToMasterButton.addEventListener("click", () => {
-  if (currentProject?.status === 'Downloaded') return;
   if (!paper) return;
   
   const assessmentId = mapAssessmentId.value;
@@ -961,9 +949,9 @@ downloadMasterBtn.addEventListener("click", () => {
   
   if (currentProject && currentProject.status === 'Draft') {
     currentProject.status = 'Downloaded';
-    setDirty();
+    isDirty = true;
     saveDraft(true).then(() => {
-      loadProjectState(currentProject); // locks inputs
+      loadProjectState(currentProject);
     });
   }
 });
@@ -1006,7 +994,7 @@ function escapeHtml(value = "") {
 function escapeAttr(value = "") { return escapeHtml(value); }
 
 // --- Dashboard Stats ---
-async function updateDashboardStats() {
+window.updateDashboardStats = async function() {
   try {
     const keys = await localforage.keys();
     const projects = await Promise.all(keys.map(k => localforage.getItem(k)));
@@ -1037,6 +1025,6 @@ async function updateDashboardStats() {
   }
 }
 
-updateDashboardStats();
+window.updateDashboardStats();
 
 } // end _bootstrapApp
